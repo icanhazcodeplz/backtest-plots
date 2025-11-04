@@ -1,9 +1,6 @@
-import { useEffect, useRef } from 'react'
-import {
-  createOptionsChart,
-  createSeriesMarkers,
-  LineSeries
-} from 'lightweight-charts'
+import {useEffect, useRef} from 'react'
+import {createOptionsChart, createSeriesMarkers, LineSeries} from 'lightweight-charts'
+import {VertLine} from '../plugins/vertical-line'
 
 function Chart({ data }) {
   const chartContainerRef = useRef(null)
@@ -11,20 +8,6 @@ function Chart({ data }) {
 
   useEffect(() => {
     if (!chartContainerRef.current || !data) return
-
-    // const customBehavior = new (defaultHorzScaleBehavior())
-    // Override methods to use numeric x-axis instead of time-based
-    // customBehavior.preprocessData = (data) => {
-    //   console.log(data)
-      // data.map(item => ({ time: item.time, value: item.price }))
-    // }
-    // customBehavior.formatHorzItem = (item) => {
-    //   item
-      // console.log('formatHorzItem item:', item);
-      // item.toFixed(2)
-    // }
-    // customBehavior.formatTickmark = (item) => item.toFixed(2)
-
 
     function formatTimeFromNano(time) {
       if (typeof time === 'string') {
@@ -80,7 +63,9 @@ function Chart({ data }) {
         // Set the hover-xaxis
         timeFormatter: indexToFormattedTime,
       },
-      // timeScale: {
+      timeScale: {
+        minBarSpacing: 0.0001,
+      },
       //   timeVisible: false,
       //   secondsVisible: false,
       //   tickMarkFormatter: indexToFormattedTime, // DOES NOTHING
@@ -88,36 +73,50 @@ function Chart({ data }) {
     })
     chartRef.current = chart
 
-    const priceLineSeries = chart.addSeries(LineSeries, { lineWidth: 1, lineType:1, pointMarkersVisible: true, pointMarkersRadius:5, color: '#ffffff'});
-    const priceData = data.ticks.map((item, index) => ({
-      time: index,
-      value: item.price,
-    }));
-    priceLineSeries.setData(priceData)
+    const priceLineSeries = chart.addSeries(LineSeries, { lineWidth: 1, lineType:1, pointMarkersVisible: true, pointMarkersRadius:1.5, color: '#ffffff'});
+    priceLineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item.price})))
+
+    const fillLineSeries = chart.addSeries(LineSeries, { lineWidth: 0, lineType:1, pointMarkersVisible: true, pointMarkersRadius: 3.5, color: 'black'});
+    fillLineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item.fill})))
 
     if (data.TickChartLines) {
       data.TickChartLines.forEach(params => {
-        // console.log('TickChartLines params:', params);
         const lineSeries = chart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType:params.type, pointMarkersVisible: false});
         lineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item[params.key]})))
       })
     }
 
-
-    const convertedPriceMarkers = data.price_markers.map(marker => {
+    const convertedFillMarkers = data.fill_markers.map(marker => {
       const markerTimeToIndex = originalTimeToIndex.get(marker.time);
-      // console.log('marker.time:', marker.time, '-> convertedTime:', convertedTime);
       return {
         ...marker,
         time: markerTimeToIndex
       };
     });
 
-    createSeriesMarkers(priceLineSeries, convertedPriceMarkers)
+    createSeriesMarkers(fillLineSeries, convertedFillMarkers)
 
+    // Add vertical lines for each signal
+    if (data.signals) {
+      data.signals.forEach(signal => {
+        const signalIndex = originalTimeToIndex.get(signal.time);
+        if (signalIndex !== undefined) {
+          const vertLine = new VertLine(chart, priceLineSeries, signalIndex, {
+            color: 'rgba(102,255,0,0.5)',
+            width: 2,
+            showLabel: true,
+            labelText: signal.tag,
+            labelBackgroundColor: 'rgb(52,128,2)',
+            labelTextColor: 'white',
+          });
+          priceLineSeries.attachPrimitive(vertLine);
+        }
+      });
+    }
+
+    // RESIZING LOGIC ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     chart.timeScale().fitContent()
 
-    // Handle resize
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
