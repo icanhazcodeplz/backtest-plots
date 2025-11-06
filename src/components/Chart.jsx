@@ -102,11 +102,11 @@ function Chart({ data }) {
         const signalIndex = originalTimeToIndex.get(signal.time);
         if (signalIndex !== undefined) {
           const vertLine = new VertLine(chart, priceLineSeries, signalIndex, {
-            color: 'rgba(102,255,0,0.5)',
+            color: signal.win === false ? 'rgba(255,0,0,0.5)' : 'rgba(102,255,0,0.5)',
             width: 2,
             showLabel: true,
             labelText: signal.tag,
-            labelBackgroundColor: 'rgb(52,128,2)',
+            labelBackgroundColor: signal.win === false ? 'rgb(128,2,2)' : 'rgb(52,128,2)',
             labelTextColor: 'white',
           });
           priceLineSeries.attachPrimitive(vertLine);
