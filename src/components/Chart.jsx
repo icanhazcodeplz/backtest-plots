@@ -4,10 +4,12 @@ import {VertLine} from '../plugins/vertical-line'
 
 function Chart({ data }) {
   const chartContainerRef = useRef(null)
+  const secondaryChartContainerRef = useRef(null)
   const chartRef = useRef(null)
+  const secondaryChartRef = useRef(null)
 
   useEffect(() => {
-    if (!chartContainerRef.current || !data) return
+    if (!chartContainerRef.current || !secondaryChartContainerRef.current || !data) return
 
     function formatTimeFromNano(time) {
       if (typeof time === 'string') {
@@ -43,6 +45,7 @@ function Chart({ data }) {
     );
 
     // Create chart
+    const minYaxisWidth = 90;
     const chart = createOptionsChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
@@ -54,6 +57,9 @@ function Chart({ data }) {
           separatorHoverColor: 'rgba(255, 0, 0, 0.1)',
           enableResize: true, // of panes
         },
+      },
+      rightPriceScale: {
+        minimumWidth: minYaxisWidth,
       },
       grid: {
         vertLines: { color: "#444" },
@@ -73,8 +79,55 @@ function Chart({ data }) {
     })
     chartRef.current = chart
 
-    const priceLineSeries = chart.addSeries(LineSeries, { lineWidth: 1, lineType:1, pointMarkersVisible: true, pointMarkersRadius:1.5, color: '#ffffff'});
+    // Create secondary chart that shares the same x-axis
+    const secondaryChart = createOptionsChart(secondaryChartContainerRef.current, {
+      width: secondaryChartContainerRef.current.clientWidth,
+      height: secondaryChartContainerRef.current.clientHeight,
+      layout: {
+        background: { color: "#050505" },
+        textColor: "#C3BCDB",
+      },
+      rightPriceScale: {
+        minimumWidth: minYaxisWidth,
+      },
+      grid: {
+        vertLines: { color: "#444" },
+        horzLines: { color: "#444" },
+      },
+      localization: {
+        timeFormatter: indexToFormattedTime,
+      },
+      timeScale: {
+        minBarSpacing: 0.0001,
+      },
+    })
+    secondaryChartRef.current = secondaryChart
+
+    // Sync the time scales between charts
+    let isSyncing = false
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (isSyncing || !range) return
+      isSyncing = true
+      secondaryChart.timeScale().setVisibleLogicalRange(range)
+      isSyncing = false
+    })
+    secondaryChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (isSyncing || !range) return
+      isSyncing = true
+      chart.timeScale().setVisibleLogicalRange(range)
+      isSyncing = false
+    })
+
+    const priceLineSeries = chart.addSeries(LineSeries, {
+      lineWidth: 1,
+      lineType: 1,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 1.5,
+      color: '#ffffff',
+      priceScaleId: 'right',
+    });
     priceLineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item.price})))
+
 
     const fillLineSeries = chart.addSeries(LineSeries, { lineWidth: 0, lineType:1, pointMarkersVisible: true, pointMarkersRadius: 3.5, color: 'black'});
     fillLineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item.fill})))
@@ -83,6 +136,20 @@ function Chart({ data }) {
       data.TickChartLines.forEach(params => {
         const lineSeries = chart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType:params.type, pointMarkersVisible: false});
         lineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item[params.key]})))
+      })
+    }
+    // Add series to the secondary chart
+    if (data.SecondaryTickChartLines) {
+      data.SecondaryTickChartLines.forEach(params => {
+        const lineSeries = secondaryChart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false });
+        lineSeries.setData(data.ticks.map((item, index) => {
+          const value = item[params.key];
+          return {
+            time: index,
+            value: value,
+            color: value >= 0 ? params.color : params.color_negative,
+          };
+        }))
       })
     }
 
@@ -116,12 +183,19 @@ function Chart({ data }) {
 
     // RESIZING LOGIC ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     chart.timeScale().fitContent()
+    secondaryChart.timeScale().fitContent()
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
           width: chartContainerRef.current.clientWidth,
           height: chartContainerRef.current.clientHeight,
+        })
+      }
+      if (secondaryChartContainerRef.current && secondaryChartRef.current) {
+        secondaryChartRef.current.applyOptions({
+          width: secondaryChartContainerRef.current.clientWidth,
+          height: secondaryChartContainerRef.current.clientHeight,
         })
       }
     }
@@ -133,11 +207,17 @@ function Chart({ data }) {
       if (chartRef.current) {
         chartRef.current.remove()
       }
+      if (secondaryChartRef.current) {
+        secondaryChartRef.current.remove()
+      }
     }
   }, [data])
 
   return (
-    <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+      <div ref={chartContainerRef} style={{ width: '100%', flex: 9 }} />
+      <div ref={secondaryChartContainerRef} style={{ width: '100%', flex: 1 }} />
+    </div>
   )
 }
 
