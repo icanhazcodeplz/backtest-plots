@@ -139,9 +139,11 @@ function Chart({ data }) {
       })
     }
     // Add series to the secondary chart
+    let secondarySeriesRef = null
     if (data.SecondaryTickChartLines) {
       data.SecondaryTickChartLines.forEach(params => {
         const lineSeries = secondaryChart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false });
+        if (!secondarySeriesRef) secondarySeriesRef = lineSeries
         lineSeries.setData(data.ticks.map((item, index) => {
           const value = item[params.key];
           return {
@@ -152,6 +154,29 @@ function Chart({ data }) {
         }))
       })
     }
+
+    // Sync crosshairs between charts
+    let isCrosshairSyncing = false
+    chart.subscribeCrosshairMove((param) => {
+      if (isCrosshairSyncing) return
+      isCrosshairSyncing = true
+      if (param.time !== undefined && secondarySeriesRef) {
+        secondaryChart.setCrosshairPosition(0, param.time, secondarySeriesRef)
+      } else {
+        secondaryChart.clearCrosshairPosition()
+      }
+      isCrosshairSyncing = false
+    })
+    secondaryChart.subscribeCrosshairMove((param) => {
+      if (isCrosshairSyncing) return
+      isCrosshairSyncing = true
+      if (param.time !== undefined) {
+        chart.setCrosshairPosition(0, param.time, priceLineSeries)
+      } else {
+        chart.clearCrosshairPosition()
+      }
+      isCrosshairSyncing = false
+    })
 
     const convertedFillMarkers = data.fill_markers.map(marker => {
       const markerTimeToIndex = originalTimeToIndex.get(marker.time);
@@ -215,8 +240,8 @@ function Chart({ data }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
-      <div ref={chartContainerRef} style={{ width: '100%', flex: 9 }} />
-      <div ref={secondaryChartContainerRef} style={{ width: '100%', flex: 1 }} />
+      <div ref={chartContainerRef} style={{ width: '100%', flex: 7 }} />
+      <div ref={secondaryChartContainerRef} style={{ width: '100%', flex: 3 }} />
     </div>
   )
 }
