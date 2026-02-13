@@ -71,11 +71,8 @@ function Chart({ data }) {
       },
       timeScale: {
         minBarSpacing: 0.0001,
+        visible: false, // Hide x-axis on main chart, show only on secondary
       },
-      //   timeVisible: false,
-      //   secondsVisible: false,
-      //   tickMarkFormatter: indexToFormattedTime, // DOES NOTHING
-      // },
     })
     chartRef.current = chart
 
@@ -125,16 +122,17 @@ function Chart({ data }) {
       pointMarkersRadius: 1.5,
       color: '#ffffff',
       priceScaleId: 'right',
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
     priceLineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item.price})))
 
-
-    const fillLineSeries = chart.addSeries(LineSeries, { lineWidth: 0, lineType:1, pointMarkersVisible: true, pointMarkersRadius: 3.5, color: 'black'});
+    const fillLineSeries = chart.addSeries(LineSeries, { lineWidth: 0, lineType:1, pointMarkersVisible: true, pointMarkersRadius: 3.5, color: 'black', lastValueVisible: false, priceLineVisible: false });
     fillLineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item.fill})))
 
     if (data.TickChartLines) {
       data.TickChartLines.forEach(params => {
-        const lineSeries = chart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType:params.type, pointMarkersVisible: false});
+        const lineSeries = chart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType:params.type, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false });
         lineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item[params.key]})))
       })
     }
@@ -142,7 +140,7 @@ function Chart({ data }) {
     let secondarySeriesRef = null
     if (data.SecondaryTickChartLines) {
       data.SecondaryTickChartLines.forEach(params => {
-        const lineSeries = secondaryChart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false });
+        const lineSeries = secondaryChart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false });
         if (!secondarySeriesRef) secondarySeriesRef = lineSeries
         lineSeries.setData(data.ticks.map((item, index) => {
           const value = item[params.key];
