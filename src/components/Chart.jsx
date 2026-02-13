@@ -136,6 +136,27 @@ function Chart({ data }) {
         lineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item[params.key]})))
       })
     }
+    // Horizontal line segments for order durations
+    if (data.orderDurations) {
+      for (const order of data.orderDurations) {
+        const fromIdx = originalTimeToIndex.get(order.start_time);
+        const toIdx = originalTimeToIndex.get(order.end_time);
+        if (fromIdx === undefined || toIdx === undefined) continue;
+        const s = chart.addSeries(LineSeries, {
+          color: order.side === 'buy' ? '#fcf11b' : '#ff6347',
+          lineWidth: 2,
+          lineType: 0,
+          pointMarkersVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        s.setData([
+          { time: fromIdx, value: parseFloat(order.price) },
+          { time: toIdx, value: parseFloat(order.price) },
+        ]);
+      }
+    }
+
     // Add series to the secondary chart
     let secondarySeriesRef = null
     if (data.SecondaryTickChartLines) {
