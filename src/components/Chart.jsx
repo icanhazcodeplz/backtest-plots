@@ -1,5 +1,5 @@
 import {useEffect, useRef} from 'react'
-import {createOptionsChart, createSeriesMarkers, LineSeries} from 'lightweight-charts'
+import {createOptionsChart, createSeriesMarkers, createTextWatermark, LineSeries} from 'lightweight-charts'
 import {VertLine} from '../plugins/vertical-line'
 
 function Chart({ data }) {
@@ -9,7 +9,9 @@ function Chart({ data }) {
   const secondaryChartRef = useRef(null)
 
   useEffect(() => {
-    if (!chartContainerRef.current || !secondaryChartContainerRef.current || !data) return
+    if (!chartContainerRef.current || !data) return
+    const hasSecondaryChart = data.SecondaryTickChartLines?.length > 0 &&
+      data.SecondaryTickChartLines.some(params => data.ticks.some(item => item[params.key] != null))
 
     function formatTimeFromNano(time) {
       if (typeof time === 'string') {
@@ -76,44 +78,63 @@ function Chart({ data }) {
     })
     chartRef.current = chart
 
-    // Create secondary chart that shares the same x-axis
-    const secondaryChart = createOptionsChart(secondaryChartContainerRef.current, {
-      width: secondaryChartContainerRef.current.clientWidth,
-      height: secondaryChartContainerRef.current.clientHeight,
-      layout: {
-        background: { color: "#050505" },
-        textColor: "#C3BCDB",
-      },
-      rightPriceScale: {
-        minimumWidth: minYaxisWidth,
-      },
-      grid: {
-        vertLines: { color: "#444" },
-        horzLines: { color: "#444" },
-      },
-      localization: {
-        timeFormatter: indexToFormattedTime,
-      },
-      timeScale: {
-        minBarSpacing: 0.0001,
-      },
-    })
-    secondaryChartRef.current = secondaryChart
+    // Watermark with symbol name
+    if (data.title) {
+      createTextWatermark(chart.panes()[0], {
+        horzAlign: 'left',
+        vertAlign: 'top',
+        lines: [{
+          text: data.title,
+          color: 'rgba(195, 188, 219, 0.25)',
+          fontSize: 48,
+          fontStyle: 'bold',
+        }],
+      })
+    }
+
+    // Create secondary chart that shares the same x-axis (only if data exists)
+    let secondaryChart = null
+    if (hasSecondaryChart && secondaryChartContainerRef.current) {
+      secondaryChart = createOptionsChart(secondaryChartContainerRef.current, {
+        width: secondaryChartContainerRef.current.clientWidth,
+        height: secondaryChartContainerRef.current.clientHeight,
+        layout: {
+          background: { color: "#050505" },
+          textColor: "#C3BCDB",
+        },
+        rightPriceScale: {
+          minimumWidth: minYaxisWidth,
+        },
+        grid: {
+          vertLines: { color: "#444" },
+          horzLines: { color: "#444" },
+        },
+        localization: {
+          timeFormatter: indexToFormattedTime,
+        },
+        timeScale: {
+          minBarSpacing: 0.0001,
+        },
+      })
+      secondaryChartRef.current = secondaryChart
+    }
 
     // Sync the time scales between charts
     let isSyncing = false
-    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (isSyncing || !range) return
-      isSyncing = true
-      secondaryChart.timeScale().setVisibleLogicalRange(range)
-      isSyncing = false
-    })
-    secondaryChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (isSyncing || !range) return
-      isSyncing = true
-      chart.timeScale().setVisibleLogicalRange(range)
-      isSyncing = false
-    })
+    if (secondaryChart) {
+      chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (isSyncing || !range) return
+        isSyncing = true
+        secondaryChart.timeScale().setVisibleLogicalRange(range)
+        isSyncing = false
+      })
+      secondaryChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (isSyncing || !range) return
+        isSyncing = true
+        chart.timeScale().setVisibleLogicalRange(range)
+        isSyncing = false
+      })
+    }
 
     const priceLineSeries = chart.addSeries(LineSeries, {
       lineWidth: 1,
@@ -159,7 +180,7 @@ function Chart({ data }) {
 
     // Add series to the secondary chart
     let secondarySeriesRef = null
-    if (data.SecondaryTickChartLines) {
+    if (secondaryChart && data.SecondaryTickChartLines) {
       data.SecondaryTickChartLines.forEach(params => {
         const lineSeries = secondaryChart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false });
         if (!secondarySeriesRef) secondarySeriesRef = lineSeries
@@ -176,26 +197,28 @@ function Chart({ data }) {
 
     // Sync crosshairs between charts
     let isCrosshairSyncing = false
-    chart.subscribeCrosshairMove((param) => {
-      if (isCrosshairSyncing) return
-      isCrosshairSyncing = true
-      if (param.time !== undefined && secondarySeriesRef) {
-        secondaryChart.setCrosshairPosition(0, param.time, secondarySeriesRef)
-      } else {
-        secondaryChart.clearCrosshairPosition()
-      }
-      isCrosshairSyncing = false
-    })
-    secondaryChart.subscribeCrosshairMove((param) => {
-      if (isCrosshairSyncing) return
-      isCrosshairSyncing = true
-      if (param.time !== undefined) {
-        chart.setCrosshairPosition(0, param.time, priceLineSeries)
-      } else {
-        chart.clearCrosshairPosition()
-      }
-      isCrosshairSyncing = false
-    })
+    if (secondaryChart) {
+      chart.subscribeCrosshairMove((param) => {
+        if (isCrosshairSyncing) return
+        isCrosshairSyncing = true
+        if (param.time !== undefined && secondarySeriesRef) {
+          secondaryChart.setCrosshairPosition(0, param.time, secondarySeriesRef)
+        } else {
+          secondaryChart.clearCrosshairPosition()
+        }
+        isCrosshairSyncing = false
+      })
+      secondaryChart.subscribeCrosshairMove((param) => {
+        if (isCrosshairSyncing) return
+        isCrosshairSyncing = true
+        if (param.time !== undefined) {
+          chart.setCrosshairPosition(0, param.time, priceLineSeries)
+        } else {
+          chart.clearCrosshairPosition()
+        }
+        isCrosshairSyncing = false
+      })
+    }
 
     const convertedFillMarkers = data.fill_markers.map(marker => {
       const markerTimeToIndex = originalTimeToIndex.get(marker.time);
@@ -227,7 +250,7 @@ function Chart({ data }) {
 
     // RESIZING LOGIC ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     chart.timeScale().fitContent()
-    secondaryChart.timeScale().fitContent()
+    if (secondaryChart) secondaryChart.timeScale().fitContent()
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
@@ -260,7 +283,10 @@ function Chart({ data }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       <div ref={chartContainerRef} style={{ width: '100%', flex: 7 }} />
-      <div ref={secondaryChartContainerRef} style={{ width: '100%', flex: 3 }} />
+      {data?.SecondaryTickChartLines?.length > 0 &&
+        data.SecondaryTickChartLines.some(params => data.ticks.some(item => item[params.key] != null)) && (
+        <div ref={secondaryChartContainerRef} style={{ width: '100%', flex: 3 }} />
+      )}
     </div>
   )
 }
