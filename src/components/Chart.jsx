@@ -213,6 +213,7 @@ function Chart({ data }) {
       pointMarkersRadius: 1.5,
       color: '#ffffff',
       priceScaleId: 'right',
+      priceFormat: { precision: 4, minMove: 0.0001 },
       lastValueVisible: false,
       priceLineVisible: false,
     });
