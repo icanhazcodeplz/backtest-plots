@@ -2,210 +2,129 @@ import {useEffect, useRef} from 'react'
 import {createOptionsChart, createSeriesMarkers, createTextWatermark, LineSeries} from 'lightweight-charts'
 import {VertLine} from '../plugins/vertical-line'
 
+function hasChartData(lines, ticks) {
+  if (!lines?.length || !ticks) return false
+  return lines.some(p => ticks.some(item => item[p.key] != null))
+}
+
+function buildChartOptions(container, timeFormatter, minYaxisWidth, isMain = false) {
+  return {
+    width: container.clientWidth,
+    height: container.clientHeight,
+    layout: {
+      background: { color: '#050505' },
+      textColor: '#C3BCDB',
+      ...(isMain ? {
+        panes: {
+          separatorColor: '#C3BCDB',
+          separatorHoverColor: 'rgba(255, 0, 0, 0.1)',
+          enableResize: true,
+        },
+      } : {}),
+    },
+    rightPriceScale: { minimumWidth: minYaxisWidth },
+    grid: {
+      vertLines: { color: '#444' },
+      horzLines: { color: '#444' },
+    },
+    localization: { timeFormatter },
+    timeScale: { minBarSpacing: 0.0001, visible: !isMain },
+  }
+}
+
+function syncTimeScales(charts) {
+  let syncing = false
+  charts.forEach((chart, i) => {
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (syncing || !range) return
+      syncing = true
+      charts.forEach((other, j) => { if (j !== i) other.timeScale().setVisibleLogicalRange(range) })
+      syncing = false
+    })
+  })
+}
+
+function syncCrosshairs(charts, seriesRefs) {
+  let syncing = false
+  charts.forEach((chart, i) => {
+    chart.subscribeCrosshairMove((param) => {
+      if (syncing) return
+      syncing = true
+      charts.forEach((other, j) => {
+        if (j === i) return
+        if (param.time !== undefined) {
+          other.setCrosshairPosition(0, param.time, seriesRefs[j])
+        } else {
+          other.clearCrosshairPosition()
+        }
+      })
+      syncing = false
+    })
+  })
+}
+
 function Chart({ data }) {
-  const chartContainerRef = useRef(null)
-  const tickChart2ContainerRef = useRef(null)
-  const tickChart3ContainerRef = useRef(null)
+  const mainContainerRef = useRef(null)
+  const chart2ContainerRef = useRef(null)
+  const chart3ContainerRef = useRef(null)
   const chartRef = useRef(null)
-  const tickChart2Ref = useRef(null)
-  const tickChart3Ref = useRef(null)
+  const chart2Ref = useRef(null)
+  const chart3Ref = useRef(null)
 
   useEffect(() => {
-    if (!chartContainerRef.current || !data) return
-    const hastickChart2 = data.TickChart2Lines?.length > 0 &&
-      data.TickChart2Lines.some(params => data.ticks.some(item => item[params.key] != null))
-    const hastickChart3 = data.TickChart3Lines?.length > 0 &&
-      data.TickChart3Lines.some(params => data.ticks.some(item => item[params.key] != null))
+    if (!mainContainerRef.current || !data) return
+
+    const hasChart2 = hasChartData(data.TickChart2Lines, data.ticks)
+    const hasChart3 = hasChartData(data.TickChart3Lines, data.ticks)
 
     function formatTimeFromNano(time) {
-      if (typeof time === 'string') {
-        const nanos = time.slice(-9);
-        const timeInt = parseInt(time);
-        // The 3600 * 0 can be used to adjust time zones. 0 because currently in EST
-        const date = new Date((timeInt / 1000000 + 3600 * 0));
-        const pad = (num, size = 2) =>
-            num.toString().padStart(size, '0');
-        let timeString = [
-              pad(date.getHours()),
-              pad(date.getMinutes()),
-              pad(date.getSeconds()),
-            ].join(':') +
-            '.' +
-            nanos;
-        return timeString;
-      }
-      return null;
+      if (typeof time !== 'string') return null
+      const nanos = time.slice(-9)
+      // 3600 * 0 offset can be adjusted for timezone; 0 = EST
+      const date = new Date(parseInt(time) / 1000000 + 3600 * 0)
+      const pad = (n) => n.toString().padStart(2, '0')
+      return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${nanos}`
     }
 
     const indexToFormattedStr = new Map(
       data.ticks.map((item, index) => [index, formatTimeFromNano(item.time)])
-    );
-
-    const indexToFormattedTime = (key) => {
-      return indexToFormattedStr.get(key);
-    }
-
-    // Create a Map with incrementing integers (starting at 1) to original time strings
+    )
     const originalTimeToIndex = new Map(
       data.ticks.map((item, index) => [item.time, index])
-    );
+    )
+    const indexToFormattedTime = (key) => indexToFormattedStr.get(key)
 
-    // Create chart
-    const minYaxisWidth = 90;
-    const chart = createOptionsChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight,
-      layout: {
-        background: { color: "#050505" },
-        textColor: "#C3BCDB",
-        panes: {
-          separatorColor: '#C3BCDB',
-          separatorHoverColor: 'rgba(255, 0, 0, 0.1)',
-          enableResize: true, // of panes
-        },
-      },
-      rightPriceScale: {
-        minimumWidth: minYaxisWidth,
-      },
-      grid: {
-        vertLines: { color: "#444" },
-        horzLines: { color: "#444" },
-      },
-      localization: {
-        // Set the hover-xaxis
-        timeFormatter: indexToFormattedTime,
-      },
-      timeScale: {
-        minBarSpacing: 0.0001,
-        visible: false, // Hide x-axis on main chart, show only on secondary
-      },
-    })
+    const minYaxisWidth = 90
+    const chart = createOptionsChart(mainContainerRef.current, buildChartOptions(mainContainerRef.current, indexToFormattedTime, minYaxisWidth, true))
     chartRef.current = chart
 
-    // Watermark with symbol name
     if (data.title) {
       createTextWatermark(chart.panes()[0], {
         horzAlign: 'left',
         vertAlign: 'top',
-        lines: [{
-          text: data.title,
-          color: 'rgba(195, 188, 219, 0.25)',
-          fontSize: 48,
-          fontStyle: 'bold',
-        }],
+        lines: [{ text: data.title, color: 'rgba(195, 188, 219, 0.25)', fontSize: 48, fontStyle: 'bold' }],
       })
     }
 
-    // Create secondary chart that shares the same x-axis (only if data exists)
-    let tickChart2 = null
-    if (hastickChart2 && tickChart2ContainerRef.current) {
-      tickChart2 = createOptionsChart(tickChart2ContainerRef.current, {
-        width: tickChart2ContainerRef.current.clientWidth,
-        height: tickChart2ContainerRef.current.clientHeight,
-        layout: {
-          background: { color: "#050505" },
-          textColor: "#C3BCDB",
-        },
-        rightPriceScale: {
-          minimumWidth: minYaxisWidth,
-        },
-        grid: {
-          vertLines: { color: "#444" },
-          horzLines: { color: "#444" },
-        },
-        localization: {
-          timeFormatter: indexToFormattedTime,
-        },
-        timeScale: {
-          minBarSpacing: 0.0001,
-        },
-      })
-      tickChart2Ref.current = tickChart2
-
-      // Watermark with series key names
-      const keyNames = data.TickChart2Lines.map(p => p.key).join(', ')
-      createTextWatermark(tickChart2.panes()[0], {
+    function createSubChart(containerRef, ref, lines) {
+      if (!containerRef.current) return null
+      const c = createOptionsChart(containerRef.current, buildChartOptions(containerRef.current, indexToFormattedTime, minYaxisWidth))
+      ref.current = c
+      createTextWatermark(c.panes()[0], {
         horzAlign: 'left',
         vertAlign: 'top',
-        lines: [{
-          text: keyNames,
-          color: 'rgba(195, 188, 219, 0.25)',
-          fontSize: 48,
-          fontStyle: 'bold',
-        }],
+        lines: [{ text: lines.map(p => p.key).join(', '), color: 'rgba(195, 188, 219, 0.25)', fontSize: 48, fontStyle: 'bold' }],
       })
+      return c
     }
 
-    // Create third chart (only if data exists)
-    let tickChart3 = null
-    if (hastickChart3 && tickChart3ContainerRef.current) {
-      tickChart3 = createOptionsChart(tickChart3ContainerRef.current, {
-        width: tickChart3ContainerRef.current.clientWidth,
-        height: tickChart3ContainerRef.current.clientHeight,
-        layout: {
-          background: { color: "#050505" },
-          textColor: "#C3BCDB",
-        },
-        rightPriceScale: {
-          minimumWidth: minYaxisWidth,
-        },
-        grid: {
-          vertLines: { color: "#444" },
-          horzLines: { color: "#444" },
-        },
-        localization: {
-          timeFormatter: indexToFormattedTime,
-        },
-        timeScale: {
-          minBarSpacing: 0.0001,
-        },
-      })
-      tickChart3Ref.current = tickChart3
+    const chart2 = hasChart2 ? createSubChart(chart2ContainerRef, chart2Ref, data.TickChart2Lines) : null
+    const chart3 = hasChart3 ? createSubChart(chart3ContainerRef, chart3Ref, data.TickChart3Lines) : null
 
-      // Watermark with series key names
-      const keyNames = data.TickChart3Lines.map(p => p.key).join(', ')
-      createTextWatermark(tickChart3.panes()[0], {
-        horzAlign: 'left',
-        vertAlign: 'top',
-        lines: [{
-          text: keyNames,
-          color: 'rgba(195, 188, 219, 0.25)',
-          fontSize: 48,
-          fontStyle: 'bold',
-        }],
-      })
-    }
+    const allCharts = [chart, chart2, chart3].filter(Boolean)
+    if (allCharts.length > 1) syncTimeScales(allCharts)
 
-    // Sync the time scales between charts
-    let isSyncing = false
-    if (tickChart2 || tickChart3) {
-      chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-        if (isSyncing || !range) return
-        isSyncing = true
-        if (tickChart2) tickChart2.timeScale().setVisibleLogicalRange(range)
-        if (tickChart3) tickChart3.timeScale().setVisibleLogicalRange(range)
-        isSyncing = false
-      })
-    }
-    if (tickChart2) {
-      tickChart2.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-        if (isSyncing || !range) return
-        isSyncing = true
-        chart.timeScale().setVisibleLogicalRange(range)
-        if (tickChart3) tickChart3.timeScale().setVisibleLogicalRange(range)
-        isSyncing = false
-      })
-    }
-    if (tickChart3) {
-      tickChart3.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-        if (isSyncing || !range) return
-        isSyncing = true
-        chart.timeScale().setVisibleLogicalRange(range)
-        if (tickChart2) tickChart2.timeScale().setVisibleLogicalRange(range)
-        isSyncing = false
-      })
-    }
-
+    // Main chart series
     const priceLineSeries = chart.addSeries(LineSeries, {
       lineWidth: 1,
       lineType: 1,
@@ -216,198 +135,112 @@ function Chart({ data }) {
       priceFormat: { precision: 4, minMove: 0.0001 },
       lastValueVisible: false,
       priceLineVisible: false,
-    });
-    priceLineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item.price})))
+    })
+    priceLineSeries.setData(data.ticks.map((item, index) => ({ time: index, value: item.price })))
 
-    const fillLineSeries = chart.addSeries(LineSeries, { lineWidth: 0, lineType:1, pointMarkersVisible: true, pointMarkersRadius: 3.5, color: 'black', lastValueVisible: false, priceLineVisible: false });
-    fillLineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item.fill})))
+    const fillLineSeries = chart.addSeries(LineSeries, {
+      lineWidth: 0, lineType: 1, pointMarkersVisible: true, pointMarkersRadius: 3.5,
+      color: 'black', lastValueVisible: false, priceLineVisible: false,
+    })
+    fillLineSeries.setData(data.ticks.map((item, index) => ({ time: index, value: item.fill })))
 
-    if (data.TickChartLines) {
-      data.TickChartLines.forEach(params => {
-        const lineSeries = chart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType:params.type, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false });
-        lineSeries.setData(data.ticks.map((item, index) => ({time: index, value: item[params.key]})))
+    data.TickChartLines?.forEach(params => {
+      const s = chart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false })
+      s.setData(data.ticks.map((item, index) => ({ time: index, value: item[params.key] })))
+    })
+
+    data.orderDurations?.forEach(order => {
+      const fromIdx = originalTimeToIndex.get(order.start_time)
+      const toIdx = originalTimeToIndex.get(order.end_time)
+      if (fromIdx === undefined || toIdx === undefined) return
+      const s = chart.addSeries(LineSeries, {
+        color: order.side === 'buy' ? '#fcf11b' : '#ff6347',
+        lineWidth: 2, lineType: 0, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false,
       })
-    }
-    // Horizontal line segments for order durations
-    if (data.orderDurations) {
-      for (const order of data.orderDurations) {
-        const fromIdx = originalTimeToIndex.get(order.start_time);
-        const toIdx = originalTimeToIndex.get(order.end_time);
-        if (fromIdx === undefined || toIdx === undefined) continue;
-        const s = chart.addSeries(LineSeries, {
-          color: order.side === 'buy' ? '#fcf11b' : '#ff6347',
-          lineWidth: 2,
-          lineType: 0,
-          pointMarkersVisible: false,
-          lastValueVisible: false,
-          priceLineVisible: false,
-        });
-        s.setData([
-          { time: fromIdx, value: parseFloat(order.price) },
-          { time: toIdx, value: parseFloat(order.price) },
-        ]);
-      }
-    }
+      s.setData([
+        { time: fromIdx, value: parseFloat(order.price) },
+        { time: toIdx, value: parseFloat(order.price) },
+      ])
+    })
 
-    // Add series to the secondary chart
-    let secondarySeriesRef = null
-    if (tickChart2 && data.TickChart2Lines) {
-      data.TickChart2Lines.forEach(params => {
-        const lineSeries = tickChart2.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false });
-        if (!secondarySeriesRef) secondarySeriesRef = lineSeries
-        lineSeries.setData(data.ticks.map((item, index) => {
-          const value = item[params.key];
-          return {
-            time: index,
-            value: value,
-            color: value >= 0 ? params.color : params.color_negative,
-          };
+    function addSubChartSeries(subChart, lines) {
+      let firstSeries = null
+      lines.forEach(params => {
+        const s = subChart.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false })
+        if (!firstSeries) firstSeries = s
+        s.setData(data.ticks.map((item, index) => {
+          const value = item[params.key]
+          return { time: index, value, color: value >= 0 ? params.color : params.color_negative }
         }))
       })
+      return firstSeries
     }
 
-    // Add series to the third chart
-    let tertiarySeriesRef = null
-    if (tickChart3 && data.TickChart3Lines) {
-      data.TickChart3Lines.forEach(params => {
-        const lineSeries = tickChart3.addSeries(LineSeries, { color: params.color, lineWidth: params.width, lineType: params.type, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false });
-        if (!tertiarySeriesRef) tertiarySeriesRef = lineSeries
-        lineSeries.setData(data.ticks.map((item, index) => {
-          const value = item[params.key];
-          return {
-            time: index,
-            value: value,
-            color: value >= 0 ? params.color : params.color_negative,
-          };
-        }))
+    const chart2Series = chart2 ? addSubChartSeries(chart2, data.TickChart2Lines) : null
+    const chart3Series = chart3 ? addSubChartSeries(chart3, data.TickChart3Lines) : null
+
+    const chartSeriesPairs = [
+      { c: chart, s: priceLineSeries },
+      ...(chart2 ? [{ c: chart2, s: chart2Series }] : []),
+      ...(chart3 ? [{ c: chart3, s: chart3Series }] : []),
+    ]
+    if (chartSeriesPairs.length > 1) {
+      syncCrosshairs(chartSeriesPairs.map(p => p.c), chartSeriesPairs.map(p => p.s))
+    }
+
+    createSeriesMarkers(fillLineSeries, data.fill_markers.map(marker => ({
+      ...marker,
+      time: originalTimeToIndex.get(marker.time),
+    })))
+
+    data.signals?.forEach(signal => {
+      const idx = originalTimeToIndex.get(signal.time)
+      if (idx === undefined) return
+      const vertLine = new VertLine(chart, priceLineSeries, idx, {
+        color: signal.win === false ? 'rgba(255,0,0,0.5)' : 'rgba(102,255,0,0.5)',
+        width: 2,
+        showLabel: true,
+        labelText: signal.tag,
+        labelBackgroundColor: signal.win === false ? 'rgb(128,2,2)' : 'rgb(52,128,2)',
+        labelTextColor: 'white',
       })
-    }
+      priceLineSeries.attachPrimitive(vertLine)
+    })
 
-    // Sync crosshairs between charts
-    let isCrosshairSyncing = false
-    if (tickChart2 || tickChart3) {
-      chart.subscribeCrosshairMove((param) => {
-        if (isCrosshairSyncing) return
-        isCrosshairSyncing = true
-        if (param.time !== undefined) {
-          if (tickChart2 && secondarySeriesRef) tickChart2.setCrosshairPosition(0, param.time, secondarySeriesRef)
-          if (tickChart3 && tertiarySeriesRef) tickChart3.setCrosshairPosition(0, param.time, tertiarySeriesRef)
-        } else {
-          if (tickChart2) tickChart2.clearCrosshairPosition()
-          if (tickChart3) tickChart3.clearCrosshairPosition()
-        }
-        isCrosshairSyncing = false
-      })
-    }
-    if (tickChart2) {
-      tickChart2.subscribeCrosshairMove((param) => {
-        if (isCrosshairSyncing) return
-        isCrosshairSyncing = true
-        if (param.time !== undefined) {
-          chart.setCrosshairPosition(0, param.time, priceLineSeries)
-          if (tickChart3 && tertiarySeriesRef) tickChart3.setCrosshairPosition(0, param.time, tertiarySeriesRef)
-        } else {
-          chart.clearCrosshairPosition()
-          if (tickChart3) tickChart3.clearCrosshairPosition()
-        }
-        isCrosshairSyncing = false
-      })
-    }
-    if (tickChart3) {
-      tickChart3.subscribeCrosshairMove((param) => {
-        if (isCrosshairSyncing) return
-        isCrosshairSyncing = true
-        if (param.time !== undefined) {
-          chart.setCrosshairPosition(0, param.time, priceLineSeries)
-          if (tickChart2 && secondarySeriesRef) tickChart2.setCrosshairPosition(0, param.time, secondarySeriesRef)
-        } else {
-          chart.clearCrosshairPosition()
-          if (tickChart2) tickChart2.clearCrosshairPosition()
-        }
-        isCrosshairSyncing = false
-      })
-    }
+    allCharts.forEach(c => c.timeScale().fitContent())
 
-    const convertedFillMarkers = data.fill_markers.map(marker => {
-      const markerTimeToIndex = originalTimeToIndex.get(marker.time);
-      return {
-        ...marker,
-        time: markerTimeToIndex
-      };
-    });
-
-    createSeriesMarkers(fillLineSeries, convertedFillMarkers)
-
-    // Add vertical lines for each signal
-    if (data.signals) {
-      data.signals.forEach(signal => {
-        const signalIndex = originalTimeToIndex.get(signal.time);
-        if (signalIndex !== undefined) {
-          const vertLine = new VertLine(chart, priceLineSeries, signalIndex, {
-            color: signal.win === false ? 'rgba(255,0,0,0.5)' : 'rgba(102,255,0,0.5)',
-            width: 2,
-            showLabel: true,
-            labelText: signal.tag,
-            labelBackgroundColor: signal.win === false ? 'rgb(128,2,2)' : 'rgb(52,128,2)',
-            labelTextColor: 'white',
-          });
-          priceLineSeries.attachPrimitive(vertLine);
-        }
-      });
-    }
-
-    // RESIZING LOGIC ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    chart.timeScale().fitContent()
-    if (tickChart2) tickChart2.timeScale().fitContent()
-    if (tickChart3) tickChart3.timeScale().fitContent()
-
+    const containerChartPairs = [
+      [mainContainerRef, chartRef],
+      [chart2ContainerRef, chart2Ref],
+      [chart3ContainerRef, chart3Ref],
+    ]
     const handleResize = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
-        })
-      }
-      if (tickChart2ContainerRef.current && tickChart2Ref.current) {
-        tickChart2Ref.current.applyOptions({
-          width: tickChart2ContainerRef.current.clientWidth,
-          height: tickChart2ContainerRef.current.clientHeight,
-        })
-      }
-      if (tickChart3ContainerRef.current && tickChart3Ref.current) {
-        tickChart3Ref.current.applyOptions({
-          width: tickChart3ContainerRef.current.clientWidth,
-          height: tickChart3ContainerRef.current.clientHeight,
-        })
-      }
+      containerChartPairs.forEach(([containerRef, cRef]) => {
+        if (containerRef.current && cRef.current) {
+          cRef.current.applyOptions({
+            width: containerRef.current.clientWidth,
+            height: containerRef.current.clientHeight,
+          })
+        }
+      })
     }
 
     window.addEventListener('resize', handleResize)
 
     return () => {
       window.removeEventListener('resize', handleResize)
-      if (chartRef.current) {
-        chartRef.current.remove()
-      }
-      if (tickChart2Ref.current) {
-        tickChart2Ref.current.remove()
-      }
-      if (tickChart3Ref.current) {
-        tickChart3Ref.current.remove()
-      }
+      ;[chartRef, chart2Ref, chart3Ref].forEach(ref => { if (ref.current) ref.current.remove() })
     }
   }, [data])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
-      <div ref={chartContainerRef} style={{ width: '100%', flex: 7 }} />
-      {data?.TickChart2Lines?.length > 0 &&
-        data.TickChart2Lines.some(params => data.ticks.some(item => item[params.key] != null)) && (
-        <div ref={tickChart2ContainerRef} style={{ width: '100%', flex: 3 }} />
+      <div ref={mainContainerRef} style={{ width: '100%', flex: 7 }} />
+      {hasChartData(data?.TickChart2Lines, data?.ticks) && (
+        <div ref={chart2ContainerRef} style={{ width: '100%', flex: 3 }} />
       )}
-      {data?.TickChart3Lines?.length > 0 &&
-        data.TickChart3Lines.some(params => data.ticks.some(item => item[params.key] != null)) && (
-        <div ref={tickChart3ContainerRef} style={{ width: '100%', flex: 3 }} />
+      {hasChartData(data?.TickChart3Lines, data?.ticks) && (
+        <div ref={chart3ContainerRef} style={{ width: '100%', flex: 3 }} />
       )}
     </div>
   )
