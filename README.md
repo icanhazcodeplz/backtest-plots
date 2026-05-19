@@ -27,6 +27,73 @@ Other scripts:
 - `npm run preview` — preview the production build
 - `npm run lint` — run ESLint
 
+## API data schema
+
+`GET http://127.0.0.1:5001/api/data` must return a JSON object with the following fields:
+
+### Top-level
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `ticks` | `Tick[]` | yes | Ordered array of price ticks; drives all chart time axes |
+| `fill_markers` | `FillMarker[]` | yes | Markers placed on the fill series |
+| `TickChartLines` | `LineConfig[]` | no | Overlay lines on the main (price) pane |
+| `TickChart2Lines` | `LineConfig[]` | no | Lines for the first sub-pane; renders only when at least one tick has the key |
+| `TickChart3Lines` | `LineConfig[]` | no | Lines for the second sub-pane; same condition |
+| `orderDurations` | `OrderDuration[]` | no | Horizontal segments showing open-order lifetimes |
+| `signals` | `Signal[]` | no | Vertical lines marking strategy signals |
+| `title` | `string \| string[]` | no | Watermark text on the main pane |
+
+### `Tick`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `time` | `string` | yes | Nanosecond Unix timestamp as a decimal string, e.g. `"1770121507372223001"` |
+| `price` | `number` | yes | Trade price; plotted as the main price line |
+| `fill` | `number` | no | Fill price at this tick; plotted as a separate dot series for order fills |
+| `size` | `number` | no | Trade size |
+| *any indicator key* | `number` | no | Arbitrary numeric fields consumed by `TickChartLines`, `TickChart2Lines`, or `TickChart3Lines` via their `key` property |
+
+### `LineConfig`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | `string` | yes | Field name to read from each `Tick` |
+| `color` | `string` | yes | CSS color for the line (and positive values when `color_negative` is set) |
+| `color_negative` | `string` | no | CSS color for ticks where the value is negative; required for `TickChart2Lines` / `TickChart3Lines` |
+| `type` | `number` | yes | lightweight-charts `LineType`: `0` = Simple, `1` = WithSteps |
+| `width` | `number` | yes | Line width in pixels |
+
+### `FillMarker`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `time` | `string` | yes | Nanosecond timestamp; must match an existing `Tick.time` |
+| `price` | `number` | yes | Price level for the marker |
+| `color` | `string` | yes | Marker color |
+| `position` | `string` | yes | `"aboveBar"` or `"belowBar"` |
+| `shape` | `string` | yes | `"circle"`, `"arrowUp"`, or `"arrowDown"` |
+| `text` | `string` | yes | Label text shown on the marker |
+| `size` | `number` | no | Marker size multiplier |
+
+### `OrderDuration`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `start_time` | `string` | yes | Nanosecond timestamp; must match an existing `Tick.time` |
+| `end_time` | `string` | yes | Nanosecond timestamp; must match an existing `Tick.time` |
+| `price` | `number` | yes | Price level at which the segment is drawn |
+| `qty` | `number` | yes | Order quantity |
+| `side` | `string` | yes | `"buy"` (yellow) or `"sell"` (red-orange) |
+
+### `Signal`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `time` | `string` | yes | Nanosecond timestamp; must match an existing `Tick.time` |
+| `win` | `boolean` | yes | `true` = green vertical line, `false` = red |
+| `tag` | `string` | yes | Label text shown at the top of the vertical line |
+
 ## Test data
 
 A captured response from the local API is checked in at `tests/data/api_data.json` for reference and future integration tests.
