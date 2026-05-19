@@ -8,6 +8,11 @@ function App() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    if (window.__BACKTEST_DATA__) {
+      setData(window.__BACKTEST_DATA__)
+      setLoading(false)
+      return
+    }
     fetch('http://127.0.0.1:5001/api/data')
       .then(response => {
         if (!response.ok) {

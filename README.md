@@ -1,23 +1,32 @@
-# React + Vite
+# backtest_plots
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite frontend for visualizing backtest results from a local trading-strategy backend. Renders tick price data, indicator lines, order fills, and signals on synchronized [lightweight-charts](https://github.com/tradingview/lightweight-charts) panes.
 
-Currently, two official plugins are available:
+## What it shows
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+The app fetches a single JSON payload from `http://127.0.0.1:5001/api/data` and renders:
 
-## React Compiler
+- **Main pane** — tick price line, with optional indicator overlays (`TickChartLines`), order durations drawn as horizontal segments colored by side (buy/sell), fill markers, and vertical signal lines tagged with win/loss colors.
+- **Sub-panes** — up to two additional panes (`TickChart2Lines`, `TickChart3Lines`) for indicators rendered below the main chart, with per-point coloring based on sign.
+- **Watermarks** — the payload `title` on the main pane; indicator keys on each sub-pane.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+All panes share a synchronized time scale and crosshair. The time axis uses an integer index internally so non-uniform tick timestamps render without gaps; tick `time` values (nanosecond strings) are formatted back to `HH:MM:SS.nnnnnnnnn` on the axis.
 
-## Expanding the ESLint configuration
+## Running
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The frontend expects a backend serving `/api/data` on `127.0.0.1:5001`.
 
+```
+npm install
+npm run dev
+```
 
-To start
-`npm run dev`
+Other scripts:
 
-Or
-click on button in package.json
+- `npm run build` — production build
+- `npm run preview` — preview the production build
+- `npm run lint` — run ESLint
+
+## Test data
+
+A captured response from the local API is checked in at `tests/data/api_data.json` for reference and future integration tests.
