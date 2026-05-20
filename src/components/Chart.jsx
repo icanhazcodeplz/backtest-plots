@@ -99,6 +99,56 @@ function syncCrosshairs(charts, seriesRefs) {
   })
 }
 
+function Pane({ containerRef, flex, lines, ticks }) {
+  return (
+    <div style={{ position: 'relative', width: '100%', flex }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {hasChartData(lines, ticks) && <LineLegend lines={lines} />}
+    </div>
+  )
+}
+
+function LineLegend({ lines }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 8,
+        right: 98,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        padding: '6px 8px',
+        background: 'rgba(5, 5, 5, 0.6)',
+        border: '1px solid rgba(195, 188, 219, 0.25)',
+        borderRadius: 4,
+        color: '#C3BCDB',
+        font: '12px sans-serif',
+        pointerEvents: 'none',
+        zIndex: 2,
+      }}
+    >
+      {lines.map(line => (
+        <div key={line.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              display: 'inline-block',
+              width: 14,
+              height: 10,
+              borderRadius: 2,
+              background: line.color_negative
+                ? `linear-gradient(90deg, ${line.color} 0 50%, ${line.color_negative} 50% 100%)`
+                : line.color,
+            }}
+          />
+          <span>{line.key}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function Chart({ data }) {
   const mainContainerRef = useRef(null)
   const sub1ContainerRef = useRef(null)
@@ -218,12 +268,12 @@ function Chart({ data }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
-      <div ref={mainContainerRef} style={{ width: '100%', flex: 7 }} />
+      <Pane containerRef={mainContainerRef} flex={7} lines={data?.TickChartLines} ticks={data?.ticks} />
       {hasChartData(data?.TickChart2Lines, data?.ticks) && (
-        <div ref={sub1ContainerRef} style={{ width: '100%', flex: 3 }} />
+        <Pane containerRef={sub1ContainerRef} flex={3} lines={data.TickChart2Lines} ticks={data.ticks} />
       )}
       {hasChartData(data?.TickChart3Lines, data?.ticks) && (
-        <div ref={sub2ContainerRef} style={{ width: '100%', flex: 3 }} />
+        <Pane containerRef={sub2ContainerRef} flex={3} lines={data.TickChart3Lines} ticks={data.ticks} />
       )}
     </div>
   )
