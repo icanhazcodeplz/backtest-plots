@@ -2,6 +2,10 @@
 
 A React + Vite frontend for visualizing backtest results from a local trading-strategy backend. Renders tick price data, indicator lines, order fills, and signals on synchronized [lightweight-charts](https://github.com/tradingview/lightweight-charts) panes.
 
+![Backtest plot screenshot](docs/images/snapshot.png)
+
+A fully interactive version of the chart above is checked in at [`tests/snapshots/expected.html`](tests/snapshots/expected.html). Download the raw file ([direct link](https://github.com/icanhazcodeplz/backtest-plots/raw/main/tests/snapshots/expected.html)) and open it in any browser — it's a self-contained bundle with the fixture data inlined, so no backend or build step is required to pan, zoom, and inspect the panes locally.
+
 ## What it shows
 
 The app fetches a single JSON payload from `http://127.0.0.1:5001/api/data` and renders:
