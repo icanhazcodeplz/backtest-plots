@@ -116,8 +116,9 @@ Other scripts:
 | `start_time` | `string` | yes | Nanosecond timestamp; must match an existing `Tick.time` |
 | `end_time` | `string` | yes | Nanosecond timestamp; must match an existing `Tick.time` |
 | `price` | `number` | yes | Price level at which the line is drawn |
-| `color` | `string` | no | CSS color for the line (default `blue`) |
+| `color` | `string` | no | CSS color for the line and its annotation (default `blue`) |
 | `thickness` | `number` | no | Line width in pixels (default `2`) |
+| `annotation` | `string` | no | Label text drawn above the right-hand end of the line; omit for no label |
 
 ## Test data
 

@@ -1,6 +1,7 @@
 import {useEffect, useRef} from 'react'
 import {createOptionsChart, createSeriesMarkers, createTextWatermark, CrosshairMode, LineSeries} from 'lightweight-charts'
 import {VertLine} from '../plugins/vertical-line'
+import {HorizLineLabel} from '../plugins/horizontal-line-label'
 
 const COMMON_SERIES_OPTIONS = { lastValueVisible: false, priceLineVisible: false }
 
@@ -248,6 +249,12 @@ function Chart({ data }) {
         { time: fromIdx, value: parseFloat(line.price) },
         { time: toIdx, value: parseFloat(line.price) },
       ])
+      if (line.annotation != null) {
+        s.attachPrimitive(new HorizLineLabel(chart, s, toIdx, parseFloat(line.price), {
+          text: line.annotation,
+          color: line.color ?? 'blue',
+        }))
+      }
     })
 
     data.VertLines?.forEach(line => {
