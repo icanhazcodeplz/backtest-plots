@@ -228,6 +228,37 @@ function Chart({ data }) {
       time: originalTimeToIndex.get(marker.time),
     })))
 
+    data.HorizLines?.forEach(line => {
+      const fromIdx = originalTimeToIndex.get(line.start_time)
+      const toIdx = originalTimeToIndex.get(line.end_time)
+      if (fromIdx === undefined || toIdx === undefined) return
+      const s = chart.addSeries(LineSeries, {
+        color: line.color ?? 'blue',
+        lineWidth: line.thickness ?? 2,
+        lineType: 0,
+        pointMarkersVisible: false,
+        ...COMMON_SERIES_OPTIONS,
+      })
+      s.setData([
+        { time: fromIdx, value: parseFloat(line.price) },
+        { time: toIdx, value: parseFloat(line.price) },
+      ])
+    })
+
+    data.VertLines?.forEach(line => {
+      const idx = originalTimeToIndex.get(line.time)
+      if (idx === undefined) return
+      const vertLine = new VertLine(chart, priceLineSeries, idx, {
+        color: line.color ?? 'blue',
+        width: line.thickness ?? 1,
+        showLabel: line.annotation != null,
+        labelText: line.annotation ?? '',
+        labelBackgroundColor: line.color ?? 'blue',
+        labelTextColor: 'white',
+      })
+      priceLineSeries.attachPrimitive(vertLine)
+    })
+
     data.signals?.forEach(signal => {
       const idx = originalTimeToIndex.get(signal.time)
       if (idx === undefined) return
