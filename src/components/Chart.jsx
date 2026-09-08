@@ -9,7 +9,7 @@ function hasChartData(lines, ticks) {
   return lines.some(p => ticks.some(item => item[p.key] != null))
 }
 
-function buildChartOptions(container, timeFormatter, isMain) {
+function buildChartOptions(container, timeFormatter, isMain, showTimeScale) {
   return {
     width: container.clientWidth,
     height: container.clientHeight,
@@ -33,7 +33,9 @@ function buildChartOptions(container, timeFormatter, isMain) {
     // Normal (not Magnet): the horizontal crosshair line follows the mouse
     // instead of snapping to the nearest series value.
     crosshair: { mode: CrosshairMode.Normal },
-    timeScale: { minBarSpacing: 0.0001, visible: !isMain },
+    // The time axis is drawn once, on the lowest pane, since all panes share a
+    // synchronized time scale.
+    timeScale: { minBarSpacing: 0.0001, visible: showTimeScale },
   }
 }
 
@@ -171,14 +173,14 @@ function Chart({ data }) {
 
     const chart = createOptionsChart(
       mainContainerRef.current,
-      buildChartOptions(mainContainerRef.current, indexToFormattedTime, true),
+      buildChartOptions(mainContainerRef.current, indexToFormattedTime, true, subSpecs.length === 0),
     )
     if (data.title) addWatermark(chart, data.title)
 
-    const subCharts = subSpecs.map(({ containerRef, lines }) => {
+    const subCharts = subSpecs.map(({ containerRef, lines }, i) => {
       const c = createOptionsChart(
         containerRef.current,
-        buildChartOptions(containerRef.current, indexToFormattedTime, false),
+        buildChartOptions(containerRef.current, indexToFormattedTime, false, i === subSpecs.length - 1),
       )
       addWatermark(c, lines.map(p => p.key).join(', '))
       const firstSeries = lines.reduce((first, params) => {
