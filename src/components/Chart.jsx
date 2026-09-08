@@ -1,5 +1,5 @@
 import {useEffect, useRef} from 'react'
-import {createOptionsChart, createSeriesMarkers, createTextWatermark, LineSeries} from 'lightweight-charts'
+import {createOptionsChart, createSeriesMarkers, createTextWatermark, CrosshairMode, LineSeries} from 'lightweight-charts'
 import {VertLine} from '../plugins/vertical-line'
 
 const COMMON_SERIES_OPTIONS = { lastValueVisible: false, priceLineVisible: false }
@@ -30,6 +30,9 @@ function buildChartOptions(container, timeFormatter, isMain) {
       horzLines: { color: '#444' },
     },
     localization: { timeFormatter },
+    // Normal (not Magnet): the horizontal crosshair line follows the mouse
+    // instead of snapping to the nearest series value.
+    crosshair: { mode: CrosshairMode.Normal },
     timeScale: { minBarSpacing: 0.0001, visible: !isMain },
   }
 }
