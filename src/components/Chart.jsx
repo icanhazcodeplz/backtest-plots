@@ -1,9 +1,26 @@
 import {useEffect, useRef} from 'react'
-import {createOptionsChart, createSeriesMarkers, createTextWatermark, CrosshairMode, LineSeries} from 'lightweight-charts'
+import {createOptionsChart, createSeriesMarkers, createTextWatermark, CrosshairMode, LineSeries, LineStyle} from 'lightweight-charts'
 import {VertLine} from '../plugins/vertical-line'
 import {HorizLineLabel} from '../plugins/horizontal-line-label'
 
 const COMMON_SERIES_OPTIONS = { lastValueVisible: false, priceLineVisible: false }
+
+const LINE_STYLES = {
+  solid: LineStyle.Solid,
+  dotted: LineStyle.Dotted,
+  dashed: LineStyle.Dashed,
+  large_dashed: LineStyle.LargeDashed,
+  sparse_dotted: LineStyle.SparseDotted,
+}
+
+// Resolves any CSS color string (including named colors) to rgba() with the given alpha.
+function withAlpha(color, alpha) {
+  if (alpha == null) return color
+  const el = document.createElement('div')
+  el.style.color = color
+  const [r, g, b] = (el.style.color.match(/\d+/g) ?? [0, 0, 255]).map(Number)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 function hasChartData(lines, ticks) {
   if (!lines?.length || !ticks) return false
@@ -238,9 +255,11 @@ function Chart({ data }) {
       const fromIdx = originalTimeToIndex.get(line.start_time)
       const toIdx = originalTimeToIndex.get(line.end_time)
       if (fromIdx === undefined || toIdx === undefined) return
+      const color = line.color ?? 'blue'
       const s = chart.addSeries(LineSeries, {
-        color: line.color ?? 'blue',
+        color: withAlpha(color, line.opacity),
         lineWidth: line.thickness ?? 2,
+        lineStyle: LINE_STYLES[line.line_style] ?? LineStyle.Solid,
         lineType: 0,
         pointMarkersVisible: false,
         ...COMMON_SERIES_OPTIONS,
@@ -252,7 +271,7 @@ function Chart({ data }) {
       if (line.annotation != null) {
         s.attachPrimitive(new HorizLineLabel(chart, s, toIdx, parseFloat(line.price), {
           text: line.annotation,
-          color: line.color ?? 'blue',
+          color,
         }))
       }
     })

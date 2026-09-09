@@ -118,6 +118,8 @@ Other scripts:
 | `price` | `number` | yes | Price level at which the line is drawn |
 | `color` | `string` | no | CSS color for the line and its annotation (default `blue`) |
 | `thickness` | `number` | no | Line width in pixels (default `2`) |
+| `line_style` | `string` | no | One of `solid`, `dotted`, `dashed`, `large_dashed`, `sparse_dotted` (default `solid`) |
+| `opacity` | `number` | no | Alpha `0`–`1` applied to the line only; the annotation stays fully opaque (default: fully opaque) |
 | `annotation` | `string` | no | Label text drawn above the right-hand end of the line; omit for no label |
 
 ## Test data
