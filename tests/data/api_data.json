@@ -1,4 +1,24 @@
 {
+  "HorizLines": [
+    {
+      "annotation": "session high",
+      "color": "#c792ea",
+      "end_time": "1770122270651986000",
+      "line_style": "dashed",
+      "price": 268.39,
+      "start_time": "1770121507372223001",
+      "thickness": 1
+    },
+    {
+      "annotation": "stop",
+      "color": "orange",
+      "end_time": "1770121881949605000",
+      "opacity": 0.5,
+      "price": 267.85,
+      "start_time": "1770121707777770000",
+      "thickness": 2
+    }
+  ],
   "TickChart2Lines": [
     {
       "color": "green",
@@ -35,6 +55,19 @@
       "key": "vwap_high",
       "type": 0,
       "width": 1.5
+    }
+  ],
+  "VertLines": [
+    {
+      "annotation": "open",
+      "color": "#2962ff",
+      "thickness": 1,
+      "time": "1770121779407203001"
+    },
+    {
+      "color": "gray",
+      "thickness": 2,
+      "time": "1770122120146855001"
     }
   ],
   "fill_markers": [

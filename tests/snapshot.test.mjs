@@ -27,11 +27,20 @@ test('snapshot of tests/data/api_data.json matches expected.html', { timeout: 60
     readFile(actualPath, 'utf8'),
     readFile(expectedPath, 'utf8'),
   ])
-  assert.equal(
-    actual,
-    expected,
-    'snapshot HTML does not match tests/snapshots/expected.html. ' +
-      'If this change is intentional, regenerate the baseline:\n' +
-      '  node scripts/snapshot.mjs tests/data/api_data.json tests/snapshots/expected.html',
-  )
+  // Compare by hand: assert.equal would print the whole ~500 KB bundle.
+  if (actual !== expected) {
+    const at = firstDifference(actual, expected)
+    assert.fail(
+      `snapshot HTML differs from tests/snapshots/expected.html at character ${at}:\n` +
+        `  expected: ${JSON.stringify(expected.slice(at, at + 120))}\n` +
+        `  actual:   ${JSON.stringify(actual.slice(at, at + 120))}\n` +
+        'If this change is intentional, regenerate the baseline with `npm run snapshot:update`.',
+    )
+  }
 })
+
+function firstDifference(a, b) {
+  let i = 0
+  while (i < a.length && i < b.length && a[i] === b[i]) i++
+  return i
+}

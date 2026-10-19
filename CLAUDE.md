@@ -4,39 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-- `npm run dev` — Vite dev server. Expects a backend at `http://127.0.0.1:5001/api/data`.
+- `npm run dev` — Vite dev server. Loads data from `VITE_API_URL` (default `http://127.0.0.1:5001/api/data`).
 - `npm run build` / `npm run preview` — production build and preview.
 - `npm run lint` — ESLint over the repo.
-- `npm test` — runs the node test runner over `tests/**/*.test.mjs`. The only test currently builds a snapshot and diffs against `tests/snapshots/expected.html`.
-- `npm run snapshot [data.json] [out.html]` — builds a single self-contained HTML file with the fixture data inlined as `window.__BACKTEST_DATA__` (defaults: `data/api_dumps/api_data.json` → `data/snapshots/snapshot.html`). Open the output directly in a browser; no backend needed.
+- `npm test` — node test runner over `tests/**/*.test.mjs`: unit tests in `tests/unit/` for the pure modules, plus a snapshot test that builds the bundle and diffs it against `tests/snapshots/expected.html`.
+- `npm run snapshot [data.json] [out.html]` — builds a single self-contained HTML file with the payload inlined as `window.__BACKTEST_DATA__` (defaults: `data/api_dumps/api_data.json` → `data/snapshots/snapshot.html`). Open the output directly in a browser; no backend needed.
+- `npm run snapshot:update` — regenerate the snapshot baseline after any intentional change to source, deps, build config, or `tests/data/api_data.json`.
 - `npm run fetch-data [url] [out.json]` — dumps the live backend response to disk.
-
-Regenerate the snapshot baseline after intentional rendering changes:
-`node scripts/snapshot.mjs tests/data/api_data.json tests/snapshots/expected.html`
+- `npm run validate [data.json]` — runs `validatePayload` on a payload file.
 
 ## Architecture
 
-Single-page React + Vite app whose entire render is one `Chart` component (`src/components/Chart.jsx`) built on TradingView's `lightweight-charts` v5.
+React + Vite app built on TradingView's `lightweight-charts` v5. The payload schema lives in `README.md`.
 
-### Data flow
+- `src/App.jsx` — reads `window.__BACKTEST_DATA__` (snapshot builds) or fetches `API_URL` (`src/config.js`), logs `validatePayload` problems, renders `Chart`.
+- `src/components/Chart.jsx` — React layout only: one container div per pane plus `LineLegend` overlays; its effect calls `buildChart` and returns its cleanup.
+- `src/chart/` — all lightweight-charts code:
+  - `buildChart.js` orchestrates: time index → main chart → `draw*` overlays (call order = z-order) → sub-pane charts → sync.
+  - `overlays.js` has one `draw*(ctx)` per main-pane payload field; `ctx = { chart, data, timeIndex, priceSeries }`.
+  - `series.js` (line/indicator/segment helpers), `panes.js` (per-pane chart options + watermark), `sync.js` (time scale + crosshair sync with a `syncing` guard), `theme.js` (all default colors/sizes).
+  - `time.js` and `payload.js` are pure (no DOM, no lightweight-charts) so Node unit tests can import them. Keep them that way, and use explicit `.js` extensions in imports under `src/chart/`.
+- `src/plugins/` — custom primitives: `VertLine` (full-height line + time-axis label) and `HorizLineLabel` (text above a segment's right end).
 
-`App.jsx` either reads `window.__BACKTEST_DATA__` (set by the snapshot bundle) or fetches `http://127.0.0.1:5001/api/data`, then hands the JSON to `Chart`. The full payload schema lives in `README.md`.
-
-### Chart construction (one effect, runs per `data` change)
-
-`Chart` builds up to three stacked panes that share a synchronized time scale and crosshair:
-
-1. **Main pane** — price line, fill markers (separate invisible-line series for marker anchoring), `TickChartLines` overlays, `orderDurations` as two-point horizontal line segments colored by side, `VertLines` as vertical lines via the `VertLine` primitive (`src/plugins/vertical-line.js`), `HorizLines` as horizontal price levels with optional `HorizLineLabel` annotations (`src/plugins/horizontal-line-label.js`).
-2. **Sub-panes** — `TickChart2Lines` and `TickChart3Lines`. A sub-pane is created only if `hasChartData` finds at least one tick with a matching key. Sub-pane lines use per-point coloring (`color` for ≥0, `color_negative` for <0).
+Each stacked pane is a separate chart instance (not a lightweight-charts pane) so it can carry a React legend. Sub-panes come from `SUB_PANE_FIELDS` (`TickChart2Lines`, `TickChart3Lines`) and are created only if `hasLineData` finds a tick with a matching key. Only the bottom pane shows the time axis, so `VertLine` labels on the main pane are hidden when sub-panes exist.
 
 ### Time-axis trick
 
-Tick timestamps are nanosecond decimal strings and are non-uniform, which `lightweight-charts` doesn't render well. The component **uses the array index as the chart's `time` value** so bars render contiguously, and supplies a `timeFormatter` (via `createOptionsChart`) that maps the index back to a formatted `HH:MM:SS.nnnnnnnnn` string. Anything keyed by original timestamp (`fill_markers`, `orderDurations`, `VertLines`, `HorizLines`) is remapped through `originalTimeToIndex` before being passed to the chart APIs. When touching this area: every series/marker/primitive must be in index-space, not nanosecond-space.
+Tick timestamps are nanosecond decimal strings and are non-uniform, which `lightweight-charts` doesn't render well. Charts **use the tick array index as `time`** (via `createOptionsChart`), and `createTimeIndex` in `time.js` provides `format(index)` for axis labels, `indexOf(time)` for exact lookups (`fill_markers`, `orderDurations`, `HorizLines`), and `nearestIndexOf(time)` for snapping (`VertLines`). Every series/marker/primitive must be in index-space, not nanosecond-space. Never parse nanosecond strings with `Number`/`parseInt` (precision loss); use string slicing or `BigInt`.
 
-### Sync
+## Tests
 
-`syncTimeScales` and `syncCrosshairs` wire pane-to-pane events with a `syncing` guard to prevent feedback loops. Both functions are no-ops with a single pane.
-
-## Snapshot test
-
-`scripts/snapshot.mjs` runs a Vite build in-memory, inlines every chunk/css into the HTML, then injects the fixture JSON as `window.__BACKTEST_DATA__`. The test (`tests/snapshot.test.mjs`) shells out to this script and asserts byte-equality against `tests/snapshots/expected.html`. Any change that alters bundled JS (deps, build config, source) will likely require regenerating the baseline.
+`scripts/snapshot.mjs` runs a Vite build in-memory (plugins from `vite.config.js`), inlines every chunk/css into the HTML, then injects the fixture JSON. The snapshot test asserts byte-equality, so it detects bundle changes but not rendering; to verify visuals, screenshot `tests/snapshots/expected.html` with headless Chrome. `tests/data/api_data.json` should keep exercising every drawable field (a unit test enforces this).

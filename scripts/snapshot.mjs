@@ -3,11 +3,12 @@
 // browser; no backend or dev server required.
 //
 // Usage:
-//   node scripts/snapshot.mjs                                  # uses tests/data/api_data.json
-//   node scripts/snapshot.mjs <data.json> <output.html>        # custom paths
+//   node scripts/snapshot.mjs                            # data/api_dumps/api_data.json -> data/snapshots/snapshot.html
+//   node scripts/snapshot.mjs <data.json> <output.html>  # custom paths
+//
+// Build plugins come from vite.config.js, so the snapshot matches `npm run build`.
 
 import { build } from 'vite'
-import react from '@vitejs/plugin-react'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -23,7 +24,6 @@ JSON.parse(dataJson) // validate
 
 const result = await build({
   root: repoRoot,
-  plugins: [react()],
   logLevel: 'warn',
   build: {
     write: false,

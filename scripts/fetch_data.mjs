@@ -4,6 +4,8 @@
 //   node scripts/fetch_data.mjs                 # saves to data/api_dumps/api_data.json
 //   node scripts/fetch_data.mjs <output.json>   # custom output path
 //   node scripts/fetch_data.mjs <url> <output>  # custom url + output
+//
+// The default URL can also be set with the VITE_API_URL env var, as for the app.
 
 import { writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
@@ -14,7 +16,7 @@ const repoRoot = path.resolve(__dirname, '..')
 
 const args = process.argv.slice(2)
 const looksLikeUrl = args[0]?.startsWith('http')
-const url = looksLikeUrl ? args[0] : 'http://127.0.0.1:5001/api/data'
+const url = looksLikeUrl ? args[0] : (process.env.VITE_API_URL ?? 'http://127.0.0.1:5001/api/data')
 const outArg = looksLikeUrl ? args[1] : args[0]
 const outPath = path.resolve(repoRoot, outArg ?? 'data/api_dumps/api_data.json')
 

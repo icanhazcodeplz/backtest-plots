@@ -1,42 +1,34 @@
-import { useState, useEffect } from 'react'
-import './App.css'
-import Chart from './components/Chart'
+import { useEffect, useState } from 'react'
+import Chart from './components/Chart.jsx'
+import { API_URL } from './config.js'
+import { validatePayload } from './chart/payload.js'
+
+// Snapshot builds (scripts/snapshot.mjs) inline the payload as
+// window.__BACKTEST_DATA__; otherwise fetch it from the backend.
+async function loadBacktestData() {
+  if (window.__BACKTEST_DATA__) return window.__BACKTEST_DATA__
+  const response = await fetch(API_URL)
+  if (!response.ok) throw new Error(`${API_URL} responded ${response.status} ${response.statusText}`)
+  return response.json()
+}
 
 function App() {
   const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (window.__BACKTEST_DATA__) {
-      setData(window.__BACKTEST_DATA__)
-      setLoading(false)
-      return
-    }
-    fetch('http://127.0.0.1:5001/api/data')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok')
-        }
-        return response.json()
+    loadBacktestData()
+      .then(payload => {
+        const problems = validatePayload(payload)
+        if (problems.length) console.warn(`Backtest payload has ${problems.length} problem(s):\n${problems.join('\n')}`)
+        setData(payload)
       })
-      .then(data => {
-        setData(data)
-        setLoading(false)
-      })
-      .catch(error => {
-        setError(error.message)
-        setLoading(false)
-      })
+      .catch(err => setError(`Could not load ${API_URL}: ${err.message}. Is the backend running?`))
   }, [])
 
-  return (
-    <div className="App">
-      {loading && <p>Loading data...</p>}
-      {error && <p>Error: {error}</p>}
-      {data && <Chart data={data} />}
-    </div>
-  )
+  if (error) return <p className="status">{error}</p>
+  if (!data) return <p className="status">Loading data...</p>
+  return <Chart data={data} />
 }
 
 export default App

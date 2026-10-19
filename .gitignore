@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local API dumps and snapshots (npm run fetch-data / npm run snapshot)
+/data/

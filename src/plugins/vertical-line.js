@@ -87,6 +87,11 @@ const defaultOptions = {
   showLabel: false,
 };
 
+/**
+ * Draws a full-height vertical line at chart index `time`, with an optional
+ * label on the time axis. The label is only visible when this chart's time
+ * axis is shown, i.e. when there are no sub-panes below the main pane.
+ */
 export class VertLine {
   constructor(chart, series, time, options) {
     const vertLineOptions = {
