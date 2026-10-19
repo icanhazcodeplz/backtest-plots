@@ -1,6 +1,6 @@
 # backtest_plots
 
-A React + Vite frontend for visualizing backtest results from a local trading-strategy backend. Renders tick price data, indicator lines, order fills, and signals on synchronized [lightweight-charts](https://github.com/tradingview/lightweight-charts) panes.
+A React + Vite frontend for visualizing backtest results from a local trading-strategy backend. Renders tick price data, indicator lines, and order fills on synchronized [lightweight-charts](https://github.com/tradingview/lightweight-charts) panes.
 
 ![Backtest plot screenshot](docs/images/snapshot.png)
 
@@ -10,7 +10,7 @@ A fully interactive version of the chart above is checked in at [`tests/snapshot
 
 The app fetches a single JSON payload from `http://127.0.0.1:5001/api/data` and renders:
 
-- **Main pane** — tick price line, with optional indicator overlays (`TickChartLines`), order durations drawn as horizontal segments colored by side (buy/sell), fill markers, vertical signal lines tagged with win/loss colors, arbitrary vertical time markers (`VertLines`), and horizontal price levels (`HorizLines`).
+- **Main pane** — tick price line, with optional indicator overlays (`TickChartLines`), order durations drawn as horizontal segments colored by side (buy/sell), fill markers, arbitrary vertical time markers (`VertLines`), and horizontal price levels (`HorizLines`).
 - **Sub-panes** — up to two additional panes (`TickChart2Lines`, `TickChart3Lines`) for indicators rendered below the main chart, with per-point coloring based on sign.
 - **Watermarks** — the payload `title` on the main pane; indicator keys on each sub-pane.
 
@@ -45,7 +45,6 @@ Other scripts:
 | `TickChart2Lines` | `LineConfig[]` | no | Lines for the first sub-pane; renders only when at least one tick has the key |
 | `TickChart3Lines` | `LineConfig[]` | no | Lines for the second sub-pane; same condition |
 | `orderDurations` | `OrderDuration[]` | no | Horizontal segments showing open-order lifetimes |
-| `signals` | `Signal[]` | no | Vertical lines marking strategy signals |
 | `VertLines` | `VertLine[]` | no | Arbitrary vertical time markers on the main pane |
 | `HorizLines` | `HorizLine[]` | no | Arbitrary horizontal price levels on the main pane |
 | `title` | `string \| string[]` | no | Watermark text on the main pane |
@@ -91,14 +90,6 @@ Other scripts:
 | `price` | `number` | yes | Price level at which the segment is drawn |
 | `qty` | `number` | yes | Order quantity |
 | `side` | `string` | yes | `"buy"` (yellow) or `"sell"` (red-orange) |
-
-### `Signal`
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `time` | `string` | yes | Nanosecond timestamp; must match an existing `Tick.time` |
-| `win` | `boolean` | yes | `true` = green vertical line, `false` = red |
-| `tag` | `string` | yes | Label text shown at the top of the vertical line |
 
 ### `VertLine`
 

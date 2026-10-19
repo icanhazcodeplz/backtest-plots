@@ -26,12 +26,12 @@ Single-page React + Vite app whose entire render is one `Chart` component (`src/
 
 `Chart` builds up to three stacked panes that share a synchronized time scale and crosshair:
 
-1. **Main pane** — price line, fill markers (separate invisible-line series for marker anchoring), `TickChartLines` overlays, `orderDurations` as two-point horizontal line segments colored by side, `signals` as vertical lines via the `VertLine` primitive (`src/plugins/vertical-line.js`).
+1. **Main pane** — price line, fill markers (separate invisible-line series for marker anchoring), `TickChartLines` overlays, `orderDurations` as two-point horizontal line segments colored by side, `VertLines` as vertical lines via the `VertLine` primitive (`src/plugins/vertical-line.js`), `HorizLines` as horizontal price levels with optional `HorizLineLabel` annotations (`src/plugins/horizontal-line-label.js`).
 2. **Sub-panes** — `TickChart2Lines` and `TickChart3Lines`. A sub-pane is created only if `hasChartData` finds at least one tick with a matching key. Sub-pane lines use per-point coloring (`color` for ≥0, `color_negative` for <0).
 
 ### Time-axis trick
 
-Tick timestamps are nanosecond decimal strings and are non-uniform, which `lightweight-charts` doesn't render well. The component **uses the array index as the chart's `time` value** so bars render contiguously, and supplies a `timeFormatter` (via `createOptionsChart`) that maps the index back to a formatted `HH:MM:SS.nnnnnnnnn` string. Anything keyed by original timestamp (`fill_markers`, `orderDurations`, `signals`) is remapped through `originalTimeToIndex` before being passed to the chart APIs. When touching this area: every series/marker/primitive must be in index-space, not nanosecond-space.
+Tick timestamps are nanosecond decimal strings and are non-uniform, which `lightweight-charts` doesn't render well. The component **uses the array index as the chart's `time` value** so bars render contiguously, and supplies a `timeFormatter` (via `createOptionsChart`) that maps the index back to a formatted `HH:MM:SS.nnnnnnnnn` string. Anything keyed by original timestamp (`fill_markers`, `orderDurations`, `VertLines`, `HorizLines`) is remapped through `originalTimeToIndex` before being passed to the chart APIs. When touching this area: every series/marker/primitive must be in index-space, not nanosecond-space.
 
 ### Sync
 

@@ -290,20 +290,6 @@ function Chart({ data }) {
       priceLineSeries.attachPrimitive(vertLine)
     })
 
-    data.signals?.forEach(signal => {
-      const idx = originalTimeToIndex.get(signal.time)
-      if (idx === undefined) return
-      const vertLine = new VertLine(chart, priceLineSeries, idx, {
-        color: signal.win === false ? 'rgba(255,0,0,0.5)' : 'rgba(102,255,0,0.5)',
-        width: 2,
-        showLabel: true,
-        labelText: signal.tag,
-        labelBackgroundColor: signal.win === false ? 'rgb(128,2,2)' : 'rgb(52,128,2)',
-        labelTextColor: 'white',
-      })
-      priceLineSeries.attachPrimitive(vertLine)
-    })
-
     allCharts.forEach(c => c.timeScale().fitContent())
 
     const resizable = [
