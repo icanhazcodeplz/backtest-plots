@@ -22,3 +22,14 @@ body {
 .status {
   margin: 1em;
 }
+
+.run-bar {
+  flex: none;
+  padding: 0.4em 1em;
+}
+
+/* Takes the height left under the run bar. */
+.chart-area {
+  flex: 1;
+  min-height: 0;
+}

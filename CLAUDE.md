@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-- `npm run dev` — Vite dev server. Loads data from `VITE_API_URL` (default `http://127.0.0.1:5001/api/data`).
+- `npm run dev` — Vite dev server. Lists runs from `<VITE_API_BASE>/runs` and loads one from `<VITE_API_BASE>/data/<run>` (default root `http://127.0.0.1:5001/api`).
 - `npm run build` / `npm run preview` — production build and preview.
 - `npm run lint` — ESLint over the repo.
 - `npm test` — node test runner over `tests/**/*.test.mjs`: unit tests in `tests/unit/` for the pure modules, plus a snapshot test that builds the bundle and diffs it against `tests/snapshots/expected.html`.

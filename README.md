@@ -12,7 +12,7 @@ Requires Node 22+.
 
 ```sh
 npm install
-npm run dev          # http://localhost:5173, loads data from http://127.0.0.1:5001/api/data
+npm run dev          # http://localhost:5173, loads runs from http://127.0.0.1:5001/api
 ```
 
 You don't need a backend to try it. Render the bundled fixture into a standalone HTML file and open it:
@@ -24,10 +24,10 @@ open /tmp/chart.html
 
 ### Pointing at your own backend
 
-The app fetches its payload once on load, from `http://127.0.0.1:5001/api/data` by default. Set `VITE_API_URL` to use another endpoint:
+On load the app fetches the list of runs from `<API root>/runs` (a JSON array of run names), shows them in a picker, and fetches the chosen run's payload from `<API root>/data/<run>`. The selected run is kept in the page URL as `?run=<name>`. The API root is `http://127.0.0.1:5001/api` by default. Set `VITE_API_BASE` to use another one:
 
 ```sh
-VITE_API_URL=http://localhost:8000/backtest npm run dev
+VITE_API_BASE=http://localhost:8000/api npm run dev
 ```
 
 The backend must allow cross-origin requests from the dev server's origin (CORS). For a quick check of the endpoint, run `npm run fetch-data` and then `npm run validate`.
@@ -59,8 +59,8 @@ All panes share a time scale and crosshair. Ticks are spaced evenly by index rat
 
 ```
 src/
-  App.jsx                 Loads the payload (inlined snapshot data or fetch), then renders <Chart>
-  config.js               API_URL (overridable with VITE_API_URL)
+  App.jsx                 Run picker; loads the chosen run's payload (or inlined snapshot data), then renders <Chart>
+  config.js               API_BASE (overridable with VITE_API_BASE), RUNS_URL, runDataUrl
   components/
     Chart.jsx             Pane layout and chart lifecycle; no drawing logic
     LineLegend.jsx        Per-pane color legend
